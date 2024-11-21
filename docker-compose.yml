@@ -1,0 +1,67 @@
+services:
+
+  db:
+    image: postgres:15
+    container_name: db
+    environment:
+      DB_HOST: "db"
+      DB_USER: "postgres"
+      DB_PASSWORD: "password"
+      POSTGRES_USER: "postgres"
+      POSTGRES_DB: "restaurant_db"
+      POSTGRES_PASSWORD: "password"
+    volumes:
+      - ./db/create_db.sql:/docker-entrypoint-initdb.d/create_db.sql:ro
+      - ./db/load_data.sql:/docker-entrypoint-initdb.d/load_data.sql:ro
+      - ./db/restaurants.csv:/docker-entrypoint-initdb.d/restaurants.csv:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+    networks:
+      - app-network
+    restart: always
+  app:
+    build:
+      context: ./flask
+    container_name: flask
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PORT=${DB_PORT}
+    ports:
+      - "5001:5000"
+    depends_on:
+      db:
+        condition: service_healthy 
+    volumes:
+      - ./flask:/app
+    networks:
+      - app-network
+    command: >
+      sh -c "python3 /app/normalize_data.py && gunicorn -b 0.0.0.0:5000 app:app"
+    restart: no
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db_data:

@@ -1,0 +1,2 @@
+RESTAURANT_HOURS_TABLE_NAME = "restaurant_hours"
+RESTAURANTS_TABLE_NAME = "restaurants"
